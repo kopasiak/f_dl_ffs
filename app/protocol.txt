@@ -1,0 +1,13 @@
+Transfer is a stream of packets
+Each packet begins with 0xaf
+Then you have 0x20 for register setup (fixed length), or codes for encoded data
+
+udl uses only encoding 0x6b:
+	- starting address (3)
+	- command length (number of pixels in command) (0 means 256)
+	- list of chunks:
+		- number of raw pixels (0 means 256)
+		- the pixels (big-endian, RGB565)
+		- repetition number of last pixel (repeat last pixel n more times)
+	Last chunk can omit repetition number if raw pixels already sum to pixel number.
+	If last chunk ends in repetition number, there is one bit of garbage data before next command.
