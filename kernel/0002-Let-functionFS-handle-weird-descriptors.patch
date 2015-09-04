@@ -1,0 +1,107 @@
+From 2fdc0957a73fa712bbe5c014afa532061c0f18c9 Mon Sep 17 00:00:00 2001
+From: Igor Kotrasinski <i.kotrasinsk@samsung.com>
+Date: Thu, 27 Aug 2015 18:11:32 +0200
+Subject: [PATCH 2/4] Let functionFS handle weird descriptors
+
+Signed-off-by: Igor Kotrasinski <i.kotrasinsk@samsung.com>
+---
+ drivers/usb/gadget/composite.c     |  2 ++
+ drivers/usb/gadget/function/f_fs.c | 56 +++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 57 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/composite.c b/drivers/usb/gadget/composite.c
+index 58b4657..57ba42d 100644
+--- a/drivers/usb/gadget/composite.c
++++ b/drivers/usb/gadget/composite.c
+@@ -1534,6 +1534,8 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
+ 				value = min(w_length, (u16) value);
+ 			}
+ 			break;
++		default:
++			goto unknown;
+ 		}
+ 		break;
+ 
+diff --git a/drivers/usb/gadget/function/f_fs.c b/drivers/usb/gadget/function/f_fs.c
+index aadf613..bf71178 100644
+--- a/drivers/usb/gadget/function/f_fs.c
++++ b/drivers/usb/gadget/function/f_fs.c
+@@ -2958,13 +2958,21 @@ static void ffs_func_disable(struct usb_function *f)
+ 	ffs_func_set_alt(f, 0, (unsigned)-1);
+ }
+ 
++static void ffs_func_complete_just_free(struct usb_ep *ep,
++					struct usb_request *req)
++{
++	kfree(req->buf);
++	kfree(req);
++}
++
++
+ static int ffs_func_setup(struct usb_function *f,
+ 			  const struct usb_ctrlrequest *creq)
+ {
+ 	struct ffs_function *func = ffs_func_from_usb(f);
+ 	struct ffs_data *ffs = func->ffs;
+ 	unsigned long flags;
+-	int ret;
++	int ret = 0, res = 0;
+ 
+ 	ENTER();
+ 
+@@ -3001,6 +3009,52 @@ static int ffs_func_setup(struct usb_function *f,
+ 			ret = func->ffs->eps_addrmap[ret];
+ 		break;
+ 
++	case USB_RECIP_DEVICE:
++		ret = le16_to_cpu(creq->wIndex);
++		switch (creq->bRequest) {
++		case USB_REQ_GET_DESCRIPTOR:
++		{
++			struct usb_descriptor_header **dh;
++			struct usb_gadget *g = f->config->cdev->gadget;
++			struct usb_request *req;
++
++			switch (g->speed) {
++			case USB_SPEED_FULL:
++				dh = f->fs_descriptors;
++				break;
++			case USB_SPEED_HIGH:
++				dh = f->hs_descriptors;
++				break;
++			case USB_SPEED_SUPER:
++				dh = f->ss_descriptors;
++				break;
++			default:
++				return -EOPNOTSUPP;
++			}
++			for (; dh != NULL ; ++dh) {
++				if ((*dh)->bDescriptorType ==
++				    (creq->wValue >> 8))
++					break;
++			}
++			if (!dh)
++				return -EOPNOTSUPP;
++			req = usb_ep_alloc_request(g->ep0, GFP_KERNEL);
++			req->length = (*dh)->bLength;
++			req->buf = kmalloc(req->length, GFP_KERNEL);
++			memcpy(req->buf, *dh, req->length);
++			req->complete = ffs_func_complete_just_free;
++			res = usb_ep_queue(g->ep0, req, GFP_ATOMIC);
++			if (res) {
++				ffs_func_complete_just_free(g->ep0, req);
++				return -EOPNOTSUPP;
++			}
++			return 0;
++		}
++			break;
++		default:
++			break;
++		}
++		break;
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+-- 
+1.9.1
+

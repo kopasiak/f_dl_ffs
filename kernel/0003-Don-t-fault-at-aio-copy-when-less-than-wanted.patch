@@ -1,0 +1,26 @@
+From 85df70e76f9b9c0a494fbedcc7dd1a232504fb76 Mon Sep 17 00:00:00 2001
+From: Igor Kotrasinski <i.kotrasinsk@samsung.com>
+Date: Thu, 3 Sep 2015 13:17:22 +0200
+Subject: [PATCH 3/4] Don't fault at aio copy when less than wanted
+
+Signed-off-by: Igor Kotrasinski <i.kotrasinsk@samsung.com>
+---
+ drivers/usb/gadget/function/f_fs.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/function/f_fs.c b/drivers/usb/gadget/function/f_fs.c
+index bf71178..054e8e3 100644
+--- a/drivers/usb/gadget/function/f_fs.c
++++ b/drivers/usb/gadget/function/f_fs.c
+@@ -650,8 +650,6 @@ static void ffs_user_copy_worker(struct work_struct *work)
+ 	if (io_data->read && ret > 0) {
+ 		use_mm(io_data->mm);
+ 		ret = copy_to_iter(io_data->buf, ret, &io_data->data);
+-		if (iov_iter_count(&io_data->data))
+-			ret = -EFAULT;
+ 		unuse_mm(io_data->mm);
+ 	}
+ 
+-- 
+1.9.1
+

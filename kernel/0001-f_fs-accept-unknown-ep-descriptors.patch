@@ -1,0 +1,26 @@
+From 884b6752010bb39a311d7abdd62109f00fae1ef9 Mon Sep 17 00:00:00 2001
+From: Igor Kotrasinski <i.kotrasinsk@samsung.com>
+Date: Thu, 27 Aug 2015 15:46:26 +0200
+Subject: [PATCH 1/4] f_fs: accept unknown ep descriptors
+
+Signed-off-by: Igor Kotrasinski <i.kotrasinsk@samsung.com>
+---
+ drivers/usb/gadget/function/f_fs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/function/f_fs.c b/drivers/usb/gadget/function/f_fs.c
+index 6e7be91..aadf613 100644
+--- a/drivers/usb/gadget/function/f_fs.c
++++ b/drivers/usb/gadget/function/f_fs.c
+@@ -1823,7 +1823,7 @@ static int __must_check ffs_do_single_desc(char *data, unsigned len,
+ 	default:
+ 		/* We should never be here */
+ 		pr_vdebug("unknown descriptor: %d\n", _ds->bDescriptorType);
+-		return -EINVAL;
++		return length;
+ 
+ inv_length:
+ 		pr_vdebug("invalid length: %d (descriptor %d)\n",
+-- 
+1.9.1
+
